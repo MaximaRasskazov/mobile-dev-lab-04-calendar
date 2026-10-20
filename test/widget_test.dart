@@ -68,6 +68,41 @@ Future<void> selectDay(WidgetTester tester, int day) async {
 }
 
 void main() {
+  testWidgets('Today is marked and changing month preserves selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const CalendarApp());
+    final state = tester.state<CalendarState>(find.byType(CalendarScreen));
+    final today = DateTime.now();
+    expect(sameDay(state.selectedDate, today), isTrue);
+    final todayButton = find.descendant(
+      of: find.byType(GridView),
+      matching: find.widgetWithText(TextButton, '${today.day}'),
+    );
+    final button = tester.widget<TextButton>(todayButton);
+    expect(button.style!.side!.resolve({})!.color, Colors.blue);
+    final otherDay = today.day == 1 ? 2 : 1;
+    await selectDay(tester, otherDay);
+    final selected = state.selectedDate;
+    await tester.tap(find.byTooltip('Следующий месяц'));
+    await tester.pumpAndSettle();
+    expect(sameDay(state.selectedDate, selected), isTrue);
+    expect(
+      state.currentMonth.month,
+      DateTime(today.year, today.month + 1).month,
+    );
+    await tester.tap(find.byTooltip('Предыдущий месяц'));
+    await tester.pumpAndSettle();
+    expect(sameDay(state.selectedDate, selected), isTrue);
+    expect(
+      tester.widget<TextButton>(todayButton).style!.side!.resolve({})!.color,
+      Colors.blue,
+    );
+    await tester.tap(find.text('Сегодня'));
+    await tester.pumpAndSettle();
+    expect(sameDay(state.selectedDate, today), isTrue);
+  });
+
   testWidgets(
     'Manual grid handles leap February, date selection and year boundary',
     (tester) async {
