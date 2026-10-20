@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../calendar_dates.dart';
+import '../event_colors.dart';
 import '../models/calendar_event.dart';
+import '../time_input_formatter.dart';
 
 class EventFormPage extends StatefulWidget {
   final DateTime selectedDate;
@@ -21,7 +24,12 @@ class _EventFormPageState extends State<EventFormPage> {
   final dateController = TextEditingController();
   final startController = TextEditingController(text: '09:00');
   final endController = TextEditingController();
-  String category = 'Учёба';
+  String colorName = 'Синий';
+  final timeFormatters = [
+    FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+    LengthLimitingTextInputFormatter(5),
+    TextInputFormatter.withFunction(formatTimeInput),
+  ];
 
   @override
   void initState() {
@@ -29,7 +37,7 @@ class _EventFormPageState extends State<EventFormPage> {
     dateController.text = formatDate(widget.selectedDate);
     final event = widget.event;
     if (event != null) {
-      category = event.category;
+      colorName = event.colorName;
       titleController.text = event.title;
       dateController.text = formatDate(event.start);
       startController.text = formatTime(event.start);
@@ -83,7 +91,7 @@ class _EventFormPageState extends State<EventFormPage> {
       title: titleController.text.trim(),
       start: start,
       end: end,
-      category: category,
+      colorName: colorName,
     );
     Navigator.pop(context, result);
   }
@@ -131,6 +139,7 @@ class _EventFormPageState extends State<EventFormPage> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: startController,
+                  inputFormatters: timeFormatters,
                   decoration: const InputDecoration(
                     labelText: 'Начало (ЧЧ:ММ)',
                   ),
@@ -145,6 +154,7 @@ class _EventFormPageState extends State<EventFormPage> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: endController,
+                  inputFormatters: timeFormatters,
                   decoration: const InputDecoration(
                     labelText: 'Окончание (ЧЧ:ММ)',
                     helperText: 'В тот же день, необязательно',
@@ -167,18 +177,30 @@ class _EventFormPageState extends State<EventFormPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: category,
+                  initialValue: colorName,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Категория'),
-                  items: const [
-                    DropdownMenuItem(value: 'Учёба', child: Text('Учёба')),
-                    DropdownMenuItem(value: 'Работа', child: Text('Работа')),
-                    DropdownMenuItem(value: 'Личное', child: Text('Личное')),
+                  decoration: const InputDecoration(labelText: 'Цвет события'),
+                  items: [
+                    for (final name in eventColors.keys)
+                      DropdownMenuItem(
+                        value: name,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.circle,
+                              color: eventColors[name],
+                              size: 16,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(name),
+                          ],
+                        ),
+                      ),
                   ],
                   onChanged: (value) {
                     if (value != null) {
                       setState(() {
-                        category = value;
+                        colorName = value;
                       });
                     }
                   },
