@@ -58,7 +58,6 @@ class CalendarState extends State<CalendarScreen> {
     }
     setState(() {
       currentMonth = next;
-      selectedDate = next;
     });
   }
 
@@ -90,6 +89,7 @@ class CalendarState extends State<CalendarScreen> {
   }
 
   Widget buildCalendar() {
+    final today = DateTime.now();
     final offset = firstDayOffset(currentMonth.year, currentMonth.month);
     final count = daysInMonth(currentMonth.year, currentMonth.month);
     final cellCount = ((offset + count + 6) ~/ 7) * 7;
@@ -112,6 +112,10 @@ class CalendarState extends State<CalendarScreen> {
         Color background = Colors.transparent;
         Color textColor = Colors.black87;
         Color markerColor = Colors.transparent;
+        BorderSide border = BorderSide.none;
+        if (sameDay(date, today)) {
+          border = const BorderSide(color: Colors.blue);
+        }
         if (repository.getEventsForDay(date).isNotEmpty) {
           markerColor = Colors.blue;
         }
@@ -128,6 +132,7 @@ class CalendarState extends State<CalendarScreen> {
             style: TextButton.styleFrom(
               backgroundColor: background,
               foregroundColor: textColor,
+              side: border,
               padding: EdgeInsets.zero,
             ),
             onPressed: () {
