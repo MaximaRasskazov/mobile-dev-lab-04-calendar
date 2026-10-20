@@ -3,6 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:l4_calendar/calendar_dates.dart';
 import 'package:l4_calendar/main.dart';
 import 'package:l4_calendar/pages/calendar_screen.dart';
+import 'package:l4_calendar/event_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 Future<void> fillEvent(
   WidgetTester tester,
@@ -27,16 +31,41 @@ Future<void> saveEvent(WidgetTester tester) async {
 }
 
 Future<void> openNewEvent(WidgetTester tester) async {
+  await tester.pumpAndSettle();
   await tester.tap(find.byType(FloatingActionButton));
   await tester.pumpAndSettle();
 }
 
-Future<void> chooseCategory(WidgetTester tester, String category) async {
+Future<void> restartApp(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpAndSettle();
+  await tester.pumpWidget(const CalendarApp());
+  await tester.pumpAndSettle();
+}
+
+final class FailingPreferences extends InMemorySharedPreferencesAsync {
+  FailingPreferences() : super.empty();
+  bool failWrites = true;
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async {
+    if (failWrites) {
+      throw Exception('Storage unavailable');
+    }
+    return super.setString(key, value, options);
+  }
+}
+
+Future<void> chooseColor(WidgetTester tester, String colorName) async {
   await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
   await tester.pumpAndSettle();
   await tester.tap(find.byType(DropdownButtonFormField<String>));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(category).last);
+  await tester.tap(find.text(colorName).last);
   await tester.pumpAndSettle();
 }
 
@@ -57,9 +86,9 @@ Future<void> eventAction(
 }
 
 Future<void> selectDay(WidgetTester tester, int day) async {
-  final button = find.descendant(
-    of: find.byType(GridView),
-    matching: find.widgetWithText(TextButton, '$day'),
+  final state = tester.state<CalendarState>(find.byType(CalendarScreen));
+  final button = find.byKey(
+    ValueKey(DateTime(state.currentMonth.year, state.currentMonth.month, day)),
   );
   await tester.ensureVisible(button);
   await tester.pumpAndSettle();
@@ -68,6 +97,143 @@ Future<void> selectDay(WidgetTester tester, int day) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  testWidgets('Dark calendar includes muted dates of adjacent months', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const CalendarApp());
+    await tester.pumpAndSettle();
+    final state = tester.state<CalendarState>(find.byType(CalendarScreen));
+    state.changeMonth(
+      (2026 - state.currentMonth.year) * 12 + 10 - state.currentMonth.month,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).brightness,
+      Brightness.dark,
+    );
+    for (final date in [
+      DateTime(2026, 9, 28),
+      DateTime(2026, 9, 29),
+      DateTime(2026, 9, 30),
+      DateTime(2026, 11, 1),
+    ]) {
+      final button = tester.widget<TextButton>(find.byKey(ValueKey(date)));
+      expect(
+        button.style!.foregroundColor!.resolve({}),
+        const Color(0xFF777B82),
+      );
+    }
+    await tester.tap(find.byKey(ValueKey(DateTime(2026, 9, 30))));
+    await tester.pumpAndSettle();
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
+    expect(sameDay(state.selectedDate, DateTime(2026, 9, 30)), isTrue);
+    state.changeMonth(
+      (2025 - state.currentMonth.year) * 12 + 12 - state.currentMonth.month,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey(DateTime(2026, 1, 1))));
+    await tester.pumpAndSettle();
+    expect(find.text('Январь 2026'), findsOneWidget);
+  });
+
+  testWidgets('Automatic colon and selected color survive an app restart', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const CalendarApp());
+    await openNewEvent(tester);
+    await fillEvent(tester, 'Встреча', start: '0900');
+    final endField = find.byType(TextFormField).at(3);
+    await tester.enterText(endField, '1');
+    await tester.enterText(endField, '12');
+    expect(tester.widget<TextFormField>(endField).controller!.text, '12:');
+    await tester.enterText(endField, '12:3');
+    await tester.enterText(endField, '12:30');
+    await tester.enterText(endField, '12:3');
+    await tester.enterText(endField, '12:');
+    await tester.enterText(endField, '12');
+    expect(tester.widget<TextFormField>(endField).controller!.text, '12');
+    await tester.enterText(endField, '');
+    await tester.enterText(endField, '1230');
+    expect(tester.widget<TextFormField>(endField).controller!.text, '12:30');
+    await chooseColor(tester, 'Оранжевый');
+    await saveEvent(tester);
+    await restartApp(tester);
+    expect(find.text('Встреча'), findsOneWidget);
+    expect(find.text('09:00 — 12:30'), findsOneWidget);
+    final tile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, 'Встреча'),
+    );
+    expect((tile.leading! as Icon).color, eventColors['Оранжевый']);
+    await eventAction(tester, 'Встреча', 'Редактировать');
+    await chooseColor(tester, 'Красный');
+    await saveEvent(tester);
+    await restartApp(tester);
+    final state = tester.state<CalendarState>(find.byType(CalendarScreen));
+    expect(
+      state.repository.getEventsForDay(state.selectedDate).single.colorName,
+      'Красный',
+    );
+    await eventAction(tester, 'Встреча', 'Удалить');
+    await restartApp(tester);
+    expect(find.text('Встреча'), findsNothing);
+  });
+
+  testWidgets(
+    'Read failure blocks changes and does not overwrite stored data',
+    (tester) async {
+      final preferences = SharedPreferencesAsync();
+      await preferences.setString('calendar_events', 'broken');
+      await tester.pumpWidget(const CalendarApp());
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Не удалось загрузить события. Нажмите «Повторить».'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+            .onPressed,
+        isNull,
+      );
+      expect(await preferences.getString('calendar_events'), 'broken');
+      await preferences.setString('calendar_events', '[]');
+      await tester.tap(find.text('Повторить'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets('Write failure keeps event in memory and allows retry', (
+    tester,
+  ) async {
+    final preferences = FailingPreferences();
+    SharedPreferencesAsyncPlatform.instance = preferences;
+    await tester.pumpWidget(const CalendarApp());
+    await openNewEvent(tester);
+    await fillEvent(tester, 'Не потерять');
+    await saveEvent(tester);
+    expect(find.text('Не потерять'), findsOneWidget);
+    expect(
+      find.text('Не удалось сохранить. Изменения пока только в памяти.'),
+      findsOneWidget,
+    );
+    preferences.failWrites = false;
+    await tester.tap(find.text('Повторить'));
+    await tester.pumpAndSettle();
+    await restartApp(tester);
+    expect(find.text('Не потерять'), findsOneWidget);
+  });
+
   testWidgets('Today is marked and changing month preserves selection', (
     tester,
   ) async {
@@ -75,9 +241,8 @@ void main() {
     final state = tester.state<CalendarState>(find.byType(CalendarScreen));
     final today = DateTime.now();
     expect(sameDay(state.selectedDate, today), isTrue);
-    final todayButton = find.descendant(
-      of: find.byType(GridView),
-      matching: find.widgetWithText(TextButton, '${today.day}'),
+    final todayButton = find.byKey(
+      ValueKey(DateTime(today.year, today.month, today.day)),
     );
     final button = tester.widget<TextButton>(todayButton);
     expect(button.style!.side!.resolve({})!.color, Colors.blue);
@@ -115,8 +280,8 @@ void main() {
       expect(find.text('Февраль 2024'), findsOneWidget);
       final grid = tester.widget<GridView>(find.byType(GridView));
       expect(grid.childrenDelegate.estimatedChildCount, 35);
-      expect(find.text('29'), findsOneWidget);
-      expect(find.text('30'), findsNothing);
+      expect(find.byKey(ValueKey(DateTime(2024, 2, 29))), findsOneWidget);
+      expect(find.byKey(ValueKey(DateTime(2024, 1, 30))), findsOneWidget);
       await selectDay(tester, 29);
       expect(find.text('События на 29.02.2024'), findsOneWidget);
       await tester.tap(find.byTooltip('Следующий месяц'));
@@ -173,17 +338,17 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(3), '09:30');
       await saveEvent(tester);
       expect(find.text('Лекция'), findsOneWidget);
-      expect(find.text('09:00 — 09:30 · Учёба'), findsOneWidget);
+      expect(find.text('09:00 — 09:30'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'Several events, categories, moving a date, cancellation and deletion',
+    'Several events, colors, moving a date, cancellation and deletion',
     (tester) async {
       await tester.pumpWidget(const CalendarApp());
       await openNewEvent(tester);
       await fillEvent(tester, 'Вечер', date: '20.10.2026', start: '18:00');
-      await chooseCategory(tester, 'Личное');
+      await chooseColor(tester, 'Фиолетовый');
       await saveEvent(tester);
       await openNewEvent(tester);
       await fillEvent(tester, '  Лекция  ', start: '09:00', end: '10:00');
@@ -208,11 +373,11 @@ void main() {
         start: '11:00',
         end: '12:00',
       );
-      await chooseCategory(tester, 'Работа');
+      await chooseColor(tester, 'Зелёный');
       await saveEvent(tester);
       expect(find.text('События на 21.10.2026'), findsOneWidget);
       expect(find.text('Практика'), findsOneWidget);
-      expect(find.text('11:00 — 12:00 · Работа'), findsOneWidget);
+      expect(find.text('11:00 — 12:00'), findsOneWidget);
       await eventAction(tester, 'Практика', 'Редактировать');
       await fillEvent(tester, 'Не сохранять', start: '15:00');
       await tester.ensureVisible(find.text('Отмена'));
@@ -245,7 +410,7 @@ void main() {
       await eventAction(tester, 'Встреча', 'Редактировать');
       await tester.enterText(find.byType(TextFormField).at(3), '');
       await saveEvent(tester);
-      expect(find.text('00:00 · Учёба'), findsOneWidget);
+      expect(find.text('00:00'), findsOneWidget);
       expect(
         state.repository.getEventsForDay(state.selectedDate).single.end,
         isNull,
