@@ -21,6 +21,7 @@ class _EventFormPageState extends State<EventFormPage> {
   final dateController = TextEditingController();
   final startController = TextEditingController(text: '09:00');
   final endController = TextEditingController();
+  String category = 'Учёба';
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _EventFormPageState extends State<EventFormPage> {
     dateController.text = formatDate(widget.selectedDate);
     final event = widget.event;
     if (event != null) {
+      category = event.category;
       titleController.text = event.title;
       dateController.text = formatDate(event.start);
       startController.text = formatTime(event.start);
@@ -81,6 +83,7 @@ class _EventFormPageState extends State<EventFormPage> {
       title: titleController.text.trim(),
       start: start,
       end: end,
+      category: category,
     );
     Navigator.pop(context, result);
   }
@@ -160,6 +163,24 @@ class _EventFormPageState extends State<EventFormPage> {
                       return 'Окончание должно быть позже начала';
                     }
                     return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Категория'),
+                  items: const [
+                    DropdownMenuItem(value: 'Учёба', child: Text('Учёба')),
+                    DropdownMenuItem(value: 'Работа', child: Text('Работа')),
+                    DropdownMenuItem(value: 'Личное', child: Text('Личное')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        category = value;
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 20),
