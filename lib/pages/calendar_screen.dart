@@ -138,7 +138,10 @@ class CalendarState extends State<CalendarScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('$day'),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text('$day', maxLines: 1),
+                ),
                 const SizedBox(height: 2),
                 Container(
                   width: 5,
