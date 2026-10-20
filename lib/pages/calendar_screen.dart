@@ -34,6 +34,23 @@ class CalendarState extends State<CalendarScreen> {
   ];
   final weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+  Color categoryColor(String category) {
+    if (category == 'Учёба') {
+      return const Color(0xFF3F51B5);
+    }
+    if (category == 'Работа') {
+      return const Color(0xFF0B8043);
+    }
+    return const Color(0xFF8E24AA);
+  }
+
+  void selectToday() {
+    setState(() {
+      selectedDate = DateTime.now();
+      currentMonth = DateTime(selectedDate.year, selectedDate.month);
+    });
+  }
+
   void changeMonth(int step) {
     final next = DateTime(currentMonth.year, currentMonth.month + step);
     if (next.year < 1 || next.year > 9999) {
@@ -94,9 +111,16 @@ class CalendarState extends State<CalendarScreen> {
         final date = DateTime(currentMonth.year, currentMonth.month, day);
         Color background = Colors.transparent;
         Color textColor = Colors.black87;
+        Color markerColor = Colors.transparent;
+        if (repository.getEventsForDay(date).isNotEmpty) {
+          markerColor = Colors.blue;
+        }
         if (sameDay(date, selectedDate)) {
           background = Colors.blue;
           textColor = Colors.white;
+          if (markerColor != Colors.transparent) {
+            markerColor = Colors.white;
+          }
         }
         return Padding(
           padding: const EdgeInsets.all(2),
@@ -111,7 +135,21 @@ class CalendarState extends State<CalendarScreen> {
                 selectedDate = date;
               });
             },
-            child: Text('$day'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('$day'),
+                const SizedBox(height: 2),
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: markerColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -126,8 +164,13 @@ class CalendarState extends State<CalendarScreen> {
     }
     return Card(
       child: ListTile(
+        leading: Icon(
+          Icons.circle,
+          color: categoryColor(event.category),
+          size: 14,
+        ),
         title: Text(event.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(time),
+        subtitle: Text('$time · ${event.category}'),
         onTap: () {
           openForm(event);
         },
@@ -157,7 +200,12 @@ class CalendarState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     final events = repository.getEventsForDay(selectedDate);
     return Scaffold(
-      appBar: AppBar(title: const Text('Календарь')),
+      appBar: AppBar(
+        title: const Text('Календарь'),
+        actions: [
+          TextButton(onPressed: selectToday, child: const Text('Сегодня')),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
