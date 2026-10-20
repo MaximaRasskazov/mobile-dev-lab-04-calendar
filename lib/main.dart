@@ -15,7 +15,13 @@ class CalendarApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Календарь',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF1B1C1F),
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF202124)),
+        cardTheme: const CardThemeData(color: Color(0xFF292A2D)),
       ),
       home: const CalendarScreen(),
     );
