@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../calendar_dates.dart';
+import '../event_colors.dart';
 import '../models/calendar_event.dart';
 import '../repositories/event_repository.dart';
 import 'event_form_page.dart';
@@ -16,6 +17,9 @@ class CalendarScreen extends StatefulWidget {
 
 class CalendarState extends State<CalendarScreen> {
   final repository = EventRepository();
+  bool isLoading = true;
+  bool isSaving = false;
+  String? loadError;
   DateTime selectedDate = DateTime.now();
   DateTime currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
   final monthNames = [
@@ -34,14 +38,55 @@ class CalendarState extends State<CalendarScreen> {
   ];
   final weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-  Color categoryColor(String category) {
-    if (category == 'Учёба') {
-      return const Color(0xFF3F51B5);
+  @override
+  void initState() {
+    super.initState();
+    loadEvents();
+  }
+
+  Future<void> loadEvents() async {
+    setState(() {
+      isLoading = true;
+      loadError = null;
+    });
+    String? error;
+    try {
+      await repository.loadEvents();
+    } catch (exception) {
+      error = 'Не удалось загрузить события. Нажмите «Повторить».';
     }
-    if (category == 'Работа') {
-      return const Color(0xFF0B8043);
+    if (!mounted) {
+      return;
     }
-    return const Color(0xFF8E24AA);
+    setState(() {
+      isLoading = false;
+      loadError = error;
+    });
+  }
+
+  Future<void> saveEvents() async {
+    setState(() {
+      isSaving = true;
+    });
+    try {
+      await repository.saveEvents();
+    } catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Не удалось сохранить. Изменения пока только в памяти.',
+            ),
+            action: SnackBarAction(label: 'Повторить', onPressed: saveEvents),
+          ),
+        );
+      }
+    }
+    if (mounted) {
+      setState(() {
+        isSaving = false;
+      });
+    }
   }
 
   void selectToday() {
@@ -86,6 +131,7 @@ class CalendarState extends State<CalendarScreen> {
       );
       currentMonth = DateTime(result.start.year, result.start.month);
     });
+    await saveEvents();
   }
 
   Widget buildCalendar() {
@@ -105,12 +151,13 @@ class CalendarState extends State<CalendarScreen> {
       itemCount: cellCount,
       itemBuilder: (context, index) {
         final day = index - offset + 1;
-        if (day < 1 || day > count) {
-          return const SizedBox.shrink();
-        }
+        // DateTime сам переводит день 0 и отрицательные дни в прошлый месяц.
         final date = DateTime(currentMonth.year, currentMonth.month, day);
         Color background = Colors.transparent;
-        Color textColor = Colors.black87;
+        Color textColor = const Color(0xFFE8EAED);
+        if (date.month != currentMonth.month) {
+          textColor = const Color(0xFF777B82);
+        }
         Color markerColor = Colors.transparent;
         BorderSide border = BorderSide.none;
         if (sameDay(date, today)) {
@@ -129,23 +176,27 @@ class CalendarState extends State<CalendarScreen> {
         return Padding(
           padding: const EdgeInsets.all(2),
           child: TextButton(
+            key: ValueKey(date),
             style: TextButton.styleFrom(
               backgroundColor: background,
               foregroundColor: textColor,
               side: border,
               padding: EdgeInsets.zero,
             ),
-            onPressed: () {
-              setState(() {
-                selectedDate = date;
-              });
-            },
+            onPressed: date.year < 1 || date.year > 9999
+                ? null
+                : () {
+                    setState(() {
+                      selectedDate = date;
+                      currentMonth = DateTime(date.year, date.month);
+                    });
+                  },
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('$day', maxLines: 1),
+                  child: Text('${date.day}', maxLines: 1),
                 ),
                 const SizedBox(height: 2),
                 Container(
@@ -174,23 +225,27 @@ class CalendarState extends State<CalendarScreen> {
       child: ListTile(
         leading: Icon(
           Icons.circle,
-          color: categoryColor(event.category),
+          color: eventColors[event.colorName],
           size: 14,
         ),
         title: Text(event.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('$time · ${event.category}'),
-        onTap: () {
-          openForm(event);
-        },
+        subtitle: Text(time),
+        onTap: isSaving
+            ? null
+            : () {
+                openForm(event);
+              },
         trailing: PopupMenuButton<String>(
+          enabled: !isSaving,
           tooltip: 'Действия с событием',
-          onSelected: (action) {
+          onSelected: (action) async {
             if (action == 'edit') {
               openForm(event);
             } else if (action == 'delete') {
               setState(() {
                 repository.deleteEvent(event);
               });
+              await saveEvents();
             }
           },
           itemBuilder: (context) {
@@ -218,6 +273,17 @@ class CalendarState extends State<CalendarScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
           children: [
+            if (isLoading || isSaving) const LinearProgressIndicator(),
+            if (loadError != null)
+              Column(
+                children: [
+                  Text(loadError!),
+                  TextButton(
+                    onPressed: loadEvents,
+                    child: const Text('Повторить'),
+                  ),
+                ],
+              ),
             Row(
               children: [
                 IconButton(
@@ -272,9 +338,11 @@ class CalendarState extends State<CalendarScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Добавить событие',
-        onPressed: () {
-          openForm(null);
-        },
+        onPressed: isLoading || isSaving || loadError != null
+            ? null
+            : () {
+                openForm(null);
+              },
         child: const Icon(Icons.add),
       ),
     );
