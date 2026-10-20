@@ -1,17 +1,76 @@
-# l4_calendar
+# ЛР4 — Календарь
 
-A new Flutter project.
+Учебное приложение на Flutter по ТЗ «ЛР04_Календарь.docx».
+Календарь построен вручную на `GridView.builder`: готовых календарей и внешних библиотек приложения нет.
 
-## Getting Started
+## Возможности
 
-This project is a starting point for a Flutter application.
+- Просмотр месяца и переход между месяцами и годами.
+- Выбор даты и список её событий, отсортированный по времени начала.
+- Создание, редактирование и удаление события.
+- Название, дата, время начала и необязательное время окончания.
+- Проверки пустого названия, существования даты и допустимого времени.
+- Дополнительное задание из ТЗ: цвета категорий «Учёба», «Работа», «Личное».
+- Небольшие дополнения: точки под датами с событиями и кнопка «Сегодня».
 
-A few resources to get you started if this is your first Flutter project:
+Цвета категорий: синий `#3F51B5`, зелёный `#0B8043`, фиолетовый `#8E24AA`.
+Палитра выбрана в духе Google Calendar, связи с сервисом Google нет.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+События хранятся **только в памяти**, как в базовом варианте ТЗ.
+После обновления страницы или полного перезапуска они исчезают.
+Окончание, если указано, должно быть позже начала в тот же день.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Запуск
+
+Из папки `l4_calendar`:
+
+```powershell
+flutter pub get
+flutter run -d chrome
+```
+
+Или запуск web-сервера с постоянным портом:
+
+```powershell
+flutter run -d web-server --web-port 8754 --web-hostname 127.0.0.1
+```
+
+Затем открыть http://127.0.0.1:8754. На Android можно запустить `flutter run`, выбрав подключённое устройство.
+
+## Использование
+
+1. Выбрать число в календаре.
+2. Нажать `+`, заполнить название, дату `ДД.ММ.ГГГГ` и начало `ЧЧ:ММ`.
+3. При необходимости указать окончание и выбрать категорию.
+4. Нажать «Сохранить».
+5. Для редактирования нажать на событие или выбрать действие в меню `⋮`.
+6. Для удаления выбрать «Удалить» в этом меню.
+
+## Структура
+
+| Файл в `lib/` | Назначение |
+| --- | --- |
+| `main.dart` | Запуск приложения и общая тема |
+| `calendar_dates.dart` | Число дней, сравнение дат, разбор и оформление даты и времени |
+| `models/calendar_event.dart` | Данные одного события |
+| `repositories/event_repository.dart` | Список событий и операции с ним |
+| `pages/calendar_screen.dart` | Ручная сетка календаря, выбранная дата и список событий |
+| `pages/event_form_page.dart` | Создание и редактирование события с проверками |
+
+Архитектура: `CalendarScreen → CalendarState → EventRepository`.
+Подробные объяснения и вопросы для защиты: [LAB4_DEFENSE_GUIDE.md](LAB4_DEFENSE_GUIDE.md).
+
+## Проверка
+
+```powershell
+flutter analyze
+flutter test
+flutter build web
+```
+
+Проверено 20.10.2026: анализатор без замечаний, 14 тестов пройдены, web-сборка успешна.
+Тесты проверяют високосные годы, границы месяцев и года, выбор даты, операции с событиями,
+категории, неверный ввод, отмену редактирования, маленький экран и появление клавиатуры.
+Ручная проверка в браузере и запуск на Android не выполнены: это не заменяется результатами тестов.
+
+Git-ветка: `main`. Изменения сохранены отдельными локальными коммитами. Публикация в GitHub не выполнялась.
