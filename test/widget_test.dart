@@ -130,7 +130,13 @@ void main() {
     }
     await tester.tap(find.byKey(ValueKey(DateTime(2026, 9, 30))));
     await tester.pumpAndSettle();
-    expect(find.text('Сентябрь 2026'), findsOneWidget);
+    expect(find.text('Сентябрь'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+          .value,
+      2026,
+    );
     expect(sameDay(state.selectedDate, DateTime(2026, 9, 30)), isTrue);
     state.changeMonth(
       (2025 - state.currentMonth.year) * 12 + 12 - state.currentMonth.month,
@@ -138,7 +144,33 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey(DateTime(2026, 1, 1))));
     await tester.pumpAndSettle();
-    expect(find.text('Январь 2026'), findsOneWidget);
+    expect(find.text('Январь'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+          .value,
+      2026,
+    );
+  });
+
+  testWidgets('Choosing a year keeps February and adjusts leap day', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const CalendarApp());
+    await tester.pumpAndSettle();
+    final state = tester.state<CalendarState>(find.byType(CalendarScreen));
+    state.changeMonth(
+      (2024 - state.currentMonth.year) * 12 + 2 - state.currentMonth.month,
+    );
+    await tester.pumpAndSettle();
+    await selectDay(tester, 29);
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2025').last);
+    await tester.pumpAndSettle();
+    expect(state.currentMonth, DateTime(2025, 2));
+    expect(state.selectedDate, DateTime(2025, 2, 28));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Automatic colon and selected color survive an app restart', (
@@ -277,7 +309,13 @@ void main() {
         (2024 - state.currentMonth.year) * 12 + 2 - state.currentMonth.month,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Февраль 2024'), findsOneWidget);
+      expect(find.text('Февраль'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+            .value,
+        2024,
+      );
       final grid = tester.widget<GridView>(find.byType(GridView));
       expect(grid.childrenDelegate.estimatedChildCount, 35);
       expect(find.byKey(ValueKey(DateTime(2024, 2, 29))), findsOneWidget);
@@ -286,17 +324,35 @@ void main() {
       expect(find.text('События на 29.02.2024'), findsOneWidget);
       await tester.tap(find.byTooltip('Следующий месяц'));
       await tester.pumpAndSettle();
-      expect(find.text('Март 2024'), findsOneWidget);
+      expect(find.text('Март'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+            .value,
+        2024,
+      );
       state.changeMonth(
         (2025 - state.currentMonth.year) * 12 + 12 - state.currentMonth.month,
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Следующий месяц'));
       await tester.pumpAndSettle();
-      expect(find.text('Январь 2026'), findsOneWidget);
+      expect(find.text('Январь'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+            .value,
+        2026,
+      );
       await tester.tap(find.byTooltip('Предыдущий месяц'));
       await tester.pumpAndSettle();
-      expect(find.text('Декабрь 2025'), findsOneWidget);
+      expect(find.text('Декабрь'), findsOneWidget);
+      expect(
+        tester
+            .widget<DropdownButton<int>>(find.byType(DropdownButton<int>))
+            .value,
+        2025,
+      );
       await tester.tap(find.text('Сегодня'));
       await tester.pumpAndSettle();
       expect(sameDay(state.selectedDate, DateTime.now()), isTrue);
