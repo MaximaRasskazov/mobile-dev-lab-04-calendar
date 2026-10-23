@@ -25,7 +25,7 @@ class EventRepository {
         }
       }
     }
-    // Меняем список только после успешного чтения всех событий.
+    // Меняем список только после успешного чтения всех событий
     _events.clear();
     _events.addAll(loaded);
     nextId = loadedNextId;
