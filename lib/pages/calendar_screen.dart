@@ -106,6 +106,41 @@ class CalendarState extends State<CalendarScreen> {
     });
   }
 
+  Widget buildYearDropdown() {
+    final currentYear = currentMonth.year;
+    int firstYear = currentYear - 100;
+    int lastYear = currentYear + 100;
+
+    return DropdownButton<int>(
+      value: currentYear,
+      isDense: true,
+      menuMaxHeight: 320,
+      underline: const SizedBox.shrink(),
+      items: [
+        // две сотни
+        for (int year = firstYear; year <= lastYear; year++)
+          DropdownMenuItem<int>(value: year, child: Text('$year')),
+      ],
+      onChanged: (int? year) {
+        if (year == null || year == currentYear) {
+          return;
+        }
+
+        // учитываем, что в некоторых месяцах дней меньше
+        int day = selectedDate.day;
+        int maxDay = daysInMonth(year, currentMonth.month);
+        if (day > maxDay) {
+          day = maxDay;
+        }
+
+        setState(() {
+          currentMonth = DateTime(year, currentMonth.month);
+          selectedDate = DateTime(year, currentMonth.month, day);
+        });
+      },
+    );
+  }
+
   Future<void> openForm(CalendarEvent? event) async {
     final result = await Navigator.push<CalendarEvent>(
       context,
@@ -136,8 +171,11 @@ class CalendarState extends State<CalendarScreen> {
 
   Widget buildCalendar() {
     final today = DateTime.now();
+    // посчитаем, кол-во ячеек перед ПЕРВЫМ числом, чтобы покрасить в серый
+    // для этого возращаем today-1
     final offset = firstDayOffset(currentMonth.year, currentMonth.month);
     final count = daysInMonth(currentMonth.year, currentMonth.month);
+    // считаем общее кол-во ячеек (+6 для округления вверх)
     final cellCount = ((offset + count + 6) ~/ 7) * 7;
 
     return GridView.builder(
@@ -293,14 +331,25 @@ class CalendarState extends State<CalendarScreen> {
                   },
                   icon: const Icon(Icons.chevron_left),
                 ),
+
                 Expanded(
-                  child: Text(
-                    '${monthNames[currentMonth.month - 1]} ${currentMonth.year}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          monthNames[currentMonth.month - 1],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      buildYearDropdown(), //звоним брату, просим выпадаюзий список
+                    ],
                   ),
                 ),
                 IconButton(
