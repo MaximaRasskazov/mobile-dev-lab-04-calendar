@@ -1,10 +1,12 @@
+//Обычные функции, то есть без виджетов
+
 int daysInMonth(int year, int month) {
-  // Нулевой день следующего месяца — последний день текущего.
+  // Нулевой день следующего месяца — последний день текущего
   return DateTime(year, month + 1, 0).day;
 }
 
 int firstDayOffset(int year, int month) {
-  // weekday: понедельник = 1. Для сетки нужен отступ от 0 до 6.
+  // понедельник = 1. Для сетки нужен отступ от 0 до 6
   return DateTime(year, month, 1).weekday - 1;
 }
 
